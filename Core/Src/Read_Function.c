@@ -14,6 +14,10 @@
 
 
 
+extern I2C_HandleTypeDef hi2c1; // or whichever I2C instance you're using
+
+
+
 // Implementation
 void ISM330_Read_AccelGyro_g_dps(float accel_g[3], float gyro_dps[3])
 {

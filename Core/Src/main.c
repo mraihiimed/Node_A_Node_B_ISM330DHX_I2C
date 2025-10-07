@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
+#include <string.h>
 #include "main.h"
 #include "vehiclefulectri.h"
 /* Private includes ----------------------------------------------------------*/
@@ -119,6 +120,27 @@ void ISM330_Read_AccelGyro(int16_t *accel, int16_t *gyro)
     accel[1] = (int16_t)(buffer[9] << 8 | buffer[8]);
     accel[2] = (int16_t)(buffer[11] << 8 | buffer[10]);
 }
+extern I2C_HandleTypeDef hi2c1; // or whichever I2C instance you're using
+
+void ISM330DHCX_ReadRaw(MotionRaw_T* motion)
+{
+    uint8_t rawData[12]; // 6 bytes accel + 6 bytes gyro
+
+    // Read accelerometer data
+    HAL_I2C_Mem_Read(&hi2c1, ISM330_ADDR, ISM330_OUTX_L_A, I2C_MEMADD_SIZE_8BIT, &rawData[0], 6, HAL_MAX_DELAY);
+
+    // Read gyroscope data
+    HAL_I2C_Mem_Read(&hi2c1, ISM330_ADDR, ISM330_OUTX_L_G, I2C_MEMADD_SIZE_8BIT, &rawData[6], 6, HAL_MAX_DELAY);
+
+    // Convert LSB to int16_t
+    motion->ax = (int16_t)(rawData[1] << 8 | rawData[0]);
+    motion->ay = (int16_t)(rawData[3] << 8 | rawData[2]);
+    motion->az = (int16_t)(rawData[5] << 8 | rawData[4]);
+
+    motion->gx = (int16_t)(rawData[7] << 8 | rawData[6]);
+    motion->gy = (int16_t)(rawData[9] << 8 | rawData[8]);
+    motion->gz = (int16_t)(rawData[11] << 8 | rawData[10]);
+}
 
 /* USER CODE END 0 */
 
@@ -139,7 +161,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  MotionRaw_T motion;
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -189,18 +211,26 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-       //ISM330_Read_AccelGyro(accel, gyro);
-		ISM330_Read_AccelGyro_g_dps(accel, gyro);
-	    // Send CAN message
-	    if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
-	    {
-	      Error_Handler();
-	    }
 
 
-	    // Blink LED on PC13
-	    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-	    // Wait 1 second
+
+//       //ISM330_Read_AccelGyro(accel, gyro);
+//		ISM330_Read_AccelGyro_g_dps(accel, gyro);
+//	    // Send CAN message
+//	    if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
+//	    {
+//	      Error_Handler();
+//	    }
+//
+//
+//	    // Blink LED on PC13
+//	    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+//	    // Wait 1 second
+//	    HAL_Delay(1000); // just idle loop
+
+
+	    ISM330DHCX_ReadRaw(&motion);
+	    sendMotionStatusToNodeA(&motion);
 	    HAL_Delay(1000); // just idle loop
   }
   /* USER CODE END 3 */
@@ -359,6 +389,30 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void sendMotionStatusToNodeA(const MotionRaw_T* motion)
+{
+    CAN_TxHeaderTypeDef txHeader;
+    uint8_t txData[8];
+    uint32_t txMailbox;
+
+    txHeader.IDE = CAN_ID_STD;
+    txHeader.RTR = CAN_RTR_DATA;
+    txHeader.DLC = 8;
+
+    // Frame 1: ax, ay, az
+    txHeader.StdId = 0x400;
+    memcpy(txData, &motion->ax, 6); // ax, ay, az
+    txData[6] = 0xAA; // marker or padding
+    txData[7] = 0x55;
+    HAL_CAN_AddTxMessage(&hcan, &txHeader, txData, &txMailbox);
+
+    // Frame 2: gx, gy, gz
+    txHeader.StdId = 0x401;
+    memcpy(txData, &motion->gx, 6); // gx, gy, gz
+    txData[6] = 0xCC;
+    txData[7] = 0x33;
+    HAL_CAN_AddTxMessage(&hcan, &txHeader, txData, &txMailbox);
+}
 
 /* USER CODE END 4 */
 

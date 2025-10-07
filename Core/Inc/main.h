@@ -36,7 +36,14 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+typedef struct {
+    int16_t ax;
+    int16_t ay;
+    int16_t az;
+    int16_t gx;
+    int16_t gy;
+    int16_t gz;
+} MotionRaw_T;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -53,7 +60,8 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void ISM330DHCX_ReadRaw(MotionRaw_T* motion);
+void sendMotionStatusToNodeA(const MotionRaw_T* motion);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
