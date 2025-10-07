@@ -17,10 +17,13 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include <stdint.h>
 #include "main.h"
 #include "vehiclefulectri.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32f1xx_hal.h"
+#include "Read_Function.h"
 
 /* USER CODE END Includes */
 
@@ -36,10 +39,21 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+#define ISM330_ADDR        0x6A << 1 // HAL expects 8-bit address (shifted)
+#define ISM330_WHO_AM_I    0x0F
+#define ISM330_WHO_AM_I_VAL 0x6B
+#define ISM330_CTRL1_XL    0x10
+#define ISM330_CTRL2_G     0x11
+#define ISM330_OUTX_L_G    0x22
+#define ISM330_OUTX_L_A    0x28
 
+#define ACC_FS_2G       0.061f   // mg/LSB → g conversion
+#define GYRO_FS_250DPS  8.75f    // mdps/LSB → dps conversion
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+float accel[3], gyro[3];
 CAN_HandleTypeDef hcan;
 
 /* USER CODE BEGIN PV */
@@ -54,12 +68,57 @@ uint32_t TxMailbox;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+// ---------- I2C Read/Write ----------
+uint8_t ISM330_I2C_Read(uint8_t reg)
+{
+    uint8_t value;
+    HAL_I2C_Mem_Read(&hi2c1, ISM330_ADDR, reg, I2C_MEMADD_SIZE_8BIT, &value, 1, HAL_MAX_DELAY);
+    return value;
+}
+
+void ISM330_I2C_Write(uint8_t reg, uint8_t value)
+{
+    HAL_I2C_Mem_Write(&hi2c1, ISM330_ADDR, reg, I2C_MEMADD_SIZE_8BIT, &value, 1, HAL_MAX_DELAY);
+}
+
+// ---------- Init Sensor ----------
+void ISM330_Init(void)
+{
+    uint8_t whoami = ISM330_I2C_Read(ISM330_WHO_AM_I);
+    if (whoami != ISM330_WHO_AM_I_VAL) while(1); // error
+
+    // Accelerometer: 104 Hz, ±2g
+    ISM330_I2C_Write(ISM330_CTRL1_XL, 0x40);
+
+    // Gyroscope: 104 Hz, 250 dps
+    ISM330_I2C_Write(ISM330_CTRL2_G, 0x40);
+}
+
+// ---------- Read Accel + Gyro ----------
+void ISM330_Read_AccelGyro(int16_t *accel, int16_t *gyro)
+{
+    uint8_t buffer[12];
+
+    // Auto-increment read from OUTX_L_G (0x22)
+    HAL_I2C_Mem_Read(&hi2c1, ISM330_ADDR, ISM330_OUTX_L_G, I2C_MEMADD_SIZE_8BIT, buffer, 12, HAL_MAX_DELAY);
+
+    // Gyroscope
+    gyro[0] = (int16_t)(buffer[1] << 8 | buffer[0]);
+    gyro[1] = (int16_t)(buffer[3] << 8 | buffer[2]);
+    gyro[2] = (int16_t)(buffer[5] << 8 | buffer[4]);
+
+    // Accelerometer
+    accel[0] = (int16_t)(buffer[7] << 8 | buffer[6]);
+    accel[1] = (int16_t)(buffer[9] << 8 | buffer[8]);
+    accel[2] = (int16_t)(buffer[11] << 8 | buffer[10]);
+}
 
 /* USER CODE END 0 */
 
@@ -93,6 +152,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_CAN_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   // Start CAN peripheral
   if (HAL_CAN_Start(&hcan) != HAL_OK)
@@ -121,13 +181,16 @@ int main(void)
   TxData[5] = 0x66;
   TxData[6] = 0x77;
   TxData[7] = 0x88;
-
+  // Init I2C1 via CubeMX or manually
+  ISM330_Init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+       //ISM330_Read_AccelGyro(accel, gyro);
+		ISM330_Read_AccelGyro_g_dps(accel, gyro);
 	    // Send CAN message
 	    if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
 	    {
@@ -192,6 +255,38 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 }
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
 
 /**
   * @brief CAN Initialization Function
@@ -256,6 +351,7 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
