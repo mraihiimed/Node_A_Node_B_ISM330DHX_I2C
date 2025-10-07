@@ -1,0 +1,3 @@
+../Core/Src/vehiclefulectri.c:17:6:sendFuelEconomyMessage	56	static
+../Core/Src/vehiclefulectri.c:33:6:FuelEconomy_Ctrl	16	static
+../Core/Src/vehiclefulectri.c:58:6:handleCANRxMessage	24	static
