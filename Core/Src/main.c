@@ -18,9 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include "main.h"
 #include "vehiclefulectri.h"
+#include "dht.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stm32f1xx_hal.h"
@@ -50,9 +52,13 @@
 
 #define ACC_FS_2G       0.061f   // mg/LSB → g conversion
 #define GYRO_FS_250DPS  8.75f    // mdps/LSB → dps conversion
+
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim1;
+UART_HandleTypeDef huart2;
 I2C_HandleTypeDef hi2c1;
 float accel[3], gyro[3];
 CAN_HandleTypeDef hcan;
@@ -63,6 +69,12 @@ CAN_RxHeaderTypeDef RxHeader;
 uint8_t TxData[8];
 uint8_t RxData[8];
 uint32_t TxMailbox;
+
+uint8_t RHI, RHD, TCI, TCD, SUM;
+uint32_t pMillis, cMillis;
+float tCelsius = 0;
+float tFahrenheit = 0;
+float RH = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,6 +82,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -102,24 +116,18 @@ void ISM330_Init(void)
     ISM330_I2C_Write(ISM330_CTRL2_G, 0x40);
 }
 
-// ---------- Read Accel + Gyro ----------
-void ISM330_Read_AccelGyro(int16_t *accel, int16_t *gyro)
-{
-    uint8_t buffer[12];
-
-    // Auto-increment read from OUTX_L_G (0x22)
-    HAL_I2C_Mem_Read(&hi2c1, ISM330_ADDR, ISM330_OUTX_L_G, I2C_MEMADD_SIZE_8BIT, buffer, 12, HAL_MAX_DELAY);
-
-    // Gyroscope
-    gyro[0] = (int16_t)(buffer[1] << 8 | buffer[0]);
-    gyro[1] = (int16_t)(buffer[3] << 8 | buffer[2]);
-    gyro[2] = (int16_t)(buffer[5] << 8 | buffer[4]);
-
-    // Accelerometer
-    accel[0] = (int16_t)(buffer[7] << 8 | buffer[6]);
-    accel[1] = (int16_t)(buffer[9] << 8 | buffer[8]);
-    accel[2] = (int16_t)(buffer[11] << 8 | buffer[10]);
+void uart_send_char(char c) {
+    while (!(USART2->SR & USART_SR_TXE)); // Wait until TX buffer is empty
+    USART2->DR = c;
 }
+void uart_send_string(const char *str) {
+    HAL_UART_Transmit(&huart2, (uint8_t *)str, strlen(str), HAL_MAX_DELAY);
+}
+char uart_receive_char(void) {
+    while (!(USART2->SR & USART_SR_RXNE)); // Wait until data is received
+    return USART2->DR;
+}
+// ---------- Read Accel + Gyro ----------
 extern I2C_HandleTypeDef hi2c1; // or whichever I2C instance you're using
 
 void ISM330DHCX_ReadRaw(MotionRaw_T* motion)
@@ -175,7 +183,11 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN_Init();
   MX_I2C1_Init();
+  MX_USART2_UART_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  //Start UART peripheral
+  uart_send_string("Start Debug: reached point X\r\n");
   // Start CAN peripheral
   if (HAL_CAN_Start(&hcan) != HAL_OK)
   {
@@ -205,30 +217,43 @@ int main(void)
   TxData[7] = 0x88;
   // Init I2C1 via CubeMX or manually
   ISM330_Init();
+  HAL_TIM_Base_Start(&htim1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-
-
-//       //ISM330_Read_AccelGyro(accel, gyro);
-//		ISM330_Read_AccelGyro_g_dps(accel, gyro);
-//	    // Send CAN message
-//	    if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
-//	    {
-//	      Error_Handler();
-//	    }
-//
-//
-//	    // Blink LED on PC13
-//	    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-//	    // Wait 1 second
-//	    HAL_Delay(1000); // just idle loop
-
-
+    if(DHT11_Start())
+	     {
+	       RHI = DHT11_Read(); // Relative humidity integral
+	       RHD = DHT11_Read(); // Relative humidity decimal
+	       TCI = DHT11_Read(); // Celsius integral
+	       TCD = DHT11_Read(); // Celsius decimal
+	       SUM = DHT11_Read(); // Check sum
+	       if (RHI + RHD + TCI + TCD == SUM)
+	       {
+	         // Can use RHI and TCI for any purposes if whole number only needed
+	         tCelsius = (float)TCI + (float)(TCD/10.0);
+	         tFahrenheit = tCelsius * 9/5 + 32;
+	         RH = (float)RHI + (float)(RHD/10.0);
+	         // Can use tCelsius, tFahrenheit and RH for any purposes
+	         char msg[64];
+	         snprintf(msg,sizeof(msg),"Temp:%.1f°C, Humidity: %.1f%%\r\n",tCelsius,RH);
+	         uart_send_string(msg);
+	       }
+	       else
+	       {
+	    	   uart_send_string("DHT11 checksum error \r\n");
+	       }
+	       sendTemperatureHumidityMessage();
+	     }
+	    // Send CAN message
+	    if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
+	    {
+	      Error_Handler();
+	    }
+	    uart_send_string("Debug: reached point X\r\n");
 	    ISM330DHCX_ReadRaw(&motion);
 	    sendMotionStatusToNodeA(&motion);
 	    HAL_Delay(1000); // just idle loop
@@ -366,7 +391,78 @@ static void MX_CAN_Init(void)
   /* USER CODE END CAN_Init 2 */
 
 }
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
 
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 71;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 65535;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+
+}
 /**
   * @brief GPIO Initialization Function
   * @param None
@@ -374,6 +470,7 @@ static void MX_CAN_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
 
   /* USER CODE END MX_GPIO_Init_1 */
@@ -382,6 +479,32 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PA1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PA4 PA7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -412,6 +535,11 @@ void sendMotionStatusToNodeA(const MotionRaw_T* motion)
     txData[6] = 0xCC;
     txData[7] = 0x33;
     HAL_CAN_AddTxMessage(&hcan, &txHeader, txData, &txMailbox);
+}
+int __io_putchar(int ch)
+{
+    HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+    return ch;
 }
 
 /* USER CODE END 4 */

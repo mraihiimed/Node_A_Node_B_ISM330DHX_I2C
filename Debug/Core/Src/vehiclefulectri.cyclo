@@ -1,3 +1,10 @@
-../Core/Src/vehiclefulectri.c:17:6:sendFuelEconomyMessage	1
-../Core/Src/vehiclefulectri.c:33:6:FuelEconomy_Ctrl	14
-../Core/Src/vehiclefulectri.c:58:6:handleCANRxMessage	5
+../Core/Src/vehiclefulectri.c:30:6:sendTemperatureHumidityMessage	1
+../Core/Src/vehiclefulectri.c:55:6:sendFuelEconomyMessage	1
+../Core/Src/vehiclefulectri.c:71:6:FuelEconomy_Ctrl	14
+../Core/Src/vehiclefulectri.c:94:6:handleCANRxMessage	17
+../Core/Src/vehiclefulectri.c:155:6:processMotionStatusNormal	1
+../Core/Src/vehiclefulectri.c:165:6:handleMotionWarning	1
+../Core/Src/vehiclefulectri.c:176:6:handleMotionCritical	1
+../Core/Src/vehiclefulectri.c:187:6:handleUnknownMotionStatus	1
+../Core/Src/vehiclefulectri.c:196:6:triggerSafetyProtocol	1
+../Core/Src/vehiclefulectri.c:204:6:logMotionEvent	2

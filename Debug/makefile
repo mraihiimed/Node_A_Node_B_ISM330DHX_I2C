@@ -61,7 +61,7 @@ main-build: can_103rb2_node_A.elf secondary-outputs
 
 # Tool invocations
 can_103rb2_node_A.elf can_103rb2_node_A.map: $(OBJS) $(USER_OBJS) C:\Can_ws\can_103rb2_node_A\STM32F103RBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "can_103rb2_node_A.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Can_ws\can_103rb2_node_A\STM32F103RBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="can_103rb2_node_A.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+	arm-none-eabi-gcc -o "can_103rb2_node_A.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Can_ws\can_103rb2_node_A\STM32F103RBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="can_103rb2_node_A.map" -Wl,--gc-sections -static -u _printf_float --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

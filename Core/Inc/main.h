@@ -67,7 +67,9 @@ void sendMotionStatusToNodeA(const MotionRaw_T* motion);
 /* Private defines -----------------------------------------------------------*/
 
 /* USER CODE BEGIN Private defines */
-
+void uart_send_char(char c);
+char uart_receive_char(void);
+void uart_send_string(const char *str);
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
