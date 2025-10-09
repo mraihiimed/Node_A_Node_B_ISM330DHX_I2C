@@ -31,19 +31,19 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stm32f1xx_hal.h"
+#include "peripherals_init.h"
+#include "can.h"
+#include "uart.h"
+#include "tim.h"
+#include "gpio.h"
+#include "i2c1.h"
+#include "motion_types.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-typedef struct {
-    int16_t ax;
-    int16_t ay;
-    int16_t az;
-    int16_t gx;
-    int16_t gy;
-    int16_t gz;
-} MotionRaw_T;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -53,7 +53,16 @@ typedef struct {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
+#define ISM330_ADDR        0x6A << 1 // HAL expects 8-bit address (shifted)
+#define ISM330_WHO_AM_I    0x0F
+#define ISM330_WHO_AM_I_VAL 0x6B
+#define ISM330_CTRL1_XL    0x10
+#define ISM330_CTRL2_G     0x11
+#define ISM330_OUTX_L_G    0x22
+#define ISM330_OUTX_L_A    0x28
 
+#define ACC_FS_2G       0.061f   // mg/LSB → g conversion
+#define GYRO_FS_250DPS  8.75f    // mdps/LSB → dps conversion
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/

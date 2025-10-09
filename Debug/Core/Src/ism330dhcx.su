@@ -1,0 +1,4 @@
+../Core/Src/ism330dhcx.c:13:6:ISM330DHCX_ReadRaw	48	static
+../Core/Src/ism330dhcx.c:33:9:ISM330_I2C_Read	40	static
+../Core/Src/ism330dhcx.c:40:6:ISM330_I2C_Write	32	static
+../Core/Src/ism330dhcx.c:46:6:ISM330_Init	16	static

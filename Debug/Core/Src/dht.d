@@ -26,7 +26,9 @@ Core/Src/dht.o: ../Core/Src/dht.c ../Core/Inc/main.h \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h \
- ../Core/Inc/dht.h
+ ../Core/Inc/peripherals_init.h ../Core/Inc/can.h ../Core/Inc/main.h \
+ ../Core/Inc/motion_types.h ../Core/Inc/uart.h ../Core/Inc/tim.h \
+ ../Core/Inc/gpio.h ../Core/Inc/i2c1.h ../Core/Inc/dht.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 ../Core/Inc/stm32f1xx_hal_conf.h:
@@ -55,4 +57,12 @@ Core/Src/dht.o: ../Core/Src/dht.c ../Core/Inc/main.h \
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h:
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h:
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h:
+../Core/Inc/peripherals_init.h:
+../Core/Inc/can.h:
+../Core/Inc/main.h:
+../Core/Inc/motion_types.h:
+../Core/Inc/uart.h:
+../Core/Inc/tim.h:
+../Core/Inc/gpio.h:
+../Core/Inc/i2c1.h:
 ../Core/Inc/dht.h:

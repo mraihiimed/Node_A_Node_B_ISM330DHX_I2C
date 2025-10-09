@@ -1,0 +1,5 @@
+../Core/Src/uart.c:13:6:uart_send_char	16	static
+../Core/Src/uart.c:17:6:uart_send_string	16	static
+../Core/Src/uart.c:20:6:uart_receive_char	4	static
+../Core/Src/uart.c:30:6:MX_USART2_UART_Init	8	static
+../Core/Src/uart.c:58:5:__io_putchar	16	static

@@ -38,11 +38,8 @@ void sendTemperatureHumidityMessage(void)
    txHeader.RTR=CAN_RTR_DATA;
    txHeader.DLC=2;
 
-//   txData[0]=(uint8_t)(tCelsius*10); // scaled to 0.1°C
-//   txData[1]=(uint8_t)(RH*10);       // scaled to 0.1%
-
-   uint8_t temp = (uint8_t)(fminf(tCelsius * 10, 255));
-   uint8_t hum  = (uint8_t)(fminf(RH * 10, 255));
+   uint8_t temp = (uint8_t)(fminf(tCelsius * 10, 255));// scaled to 0.1°C
+   uint8_t hum  = (uint8_t)(fminf(RH * 10, 255));// scaled to 0.1%
    txData[0] = temp;
    txData[1] = hum;
 
