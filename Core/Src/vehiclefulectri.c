@@ -46,8 +46,40 @@ void sendTemperatureHumidityMessage(void)
 
    HAL_CAN_AddTxMessage(&hcan, &txHeader, txData, &txMailbox);
 }
+void sendUSDDefaultSessionMessage(void)
+{
+CAN_TxHeaderTypeDef txHeader;
+uint8_t txData[2];
+uint32_t txMailbox;
+
+   txHeader.StdId = 0x7E8;
+   txHeader.IDE=CAN_ID_STD;
+   txHeader.RTR=CAN_RTR_DATA;
+   txHeader.DLC=2;
+   txData[0]=0x50;
+   txData[1]=0x01;
 
 
+   HAL_CAN_AddTxMessage(&hcan, &txHeader, txData, &txMailbox);
+}
+
+void sendUDSNegativResponse(void)
+{
+   CAN_TxHeaderTypeDef txHeader;
+   uint8_t txData[2];
+   uint32_t txMailbox;
+
+   txHeader.StdId = 0x7E8;
+   txHeader.IDE=CAN_ID_STD;
+   txHeader.RTR=CAN_RTR_DATA;
+   txHeader.DLC=3;
+   txData[0]=0x7F; //Negative Response SID
+   txData[1]=0x01; //Original Request SID
+   txData[2]=0x22; // NRC: Conditions Not Correct
+
+
+HAL_CAN_AddTxMessage(&hcan, &txHeader, txData, &txMailbox);
+}
 // Send fuel economy status
 void sendFuelEconomyMessage(uint8_t status) {
     CAN_TxHeaderTypeDef TxHeader;
@@ -146,6 +178,24 @@ void handleCANRxMessage(uint32_t id, uint8_t* data, uint8_t dlc)
         // 0 = Normal, 1 = Warning, 2 = Critical
        // TBD handleSystemStatus(status);
     }
+    if (id == 0x7DF && dlc == 2)
+    {
+        uint8_t sid_response = data[0];     // Expected: 0x50
+        uint8_t subfunction = data[1];      // Expected: 0x01
+
+        if (sid_response == 0x10 && subfunction == 0x01) {
+
+
+        	  sendUSDDefaultSessionMessage();
+        }
+        else
+        {
+        	sendUDSNegativResponse();
+        }
+
+        return; // Skip further processing
+    }
+
 
 }
 
